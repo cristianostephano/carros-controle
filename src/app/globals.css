@@ -5,11 +5,20 @@
   --foreground: #171717;
 }
 
+/* Paleta da marca Raiar Orgânicos (empresa dona da frota), extraída do site
+   institucional (raiarorganicos.com.br) a pedido do usuário para "modernizar"
+   o visual do dashboard. brand-navy é o azul escuro do cabeçalho/textos de
+   destaque do site; brand-yellow é o amarelo usado na faixa de aviso/CTAs. */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --color-brand-navy: #254d69;
+  --color-brand-navy-light: #3a6685;
+  --color-brand-yellow: #ffd043;
+  --color-brand-yellow-dark: #e0ac1f;
+  --color-brand-cyan: #4dd9de;
 }
 
 @media (prefers-color-scheme: dark) {

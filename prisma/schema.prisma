@@ -1,0 +1,230 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+// Quinzena / período de apuração
+model Period {
+  id               String    @id @default(cuid())
+  label            String
+  startDate        DateTime
+  endDate          DateTime
+  responseDeadline DateTime?
+  status           String    @default("OPEN") // OPEN | CLOSED | REOPENED
+  createdAt        DateTime  @default(now())
+  createdBy        String?
+  closedAt         DateTime?
+  closedBy         String?
+
+  imports Import[]
+  trips   Trip[]
+  links   SalespersonAccessLink[]
+}
+
+// Cada upload de planilha do rastreador
+model Import {
+  id             String    @id @default(cuid())
+  periodId       String
+  period         Period    @relation(fields: [periodId], references: [id])
+  fileName       String
+  fileHash       String
+  importedAt     DateTime  @default(now())
+  importedBy     String?
+  rowCount       Int
+  dataRangeStart DateTime?
+  dataRangeEnd   DateTime?
+  status         String    @default("PENDING_PREVIEW") // PENDING_PREVIEW | CONFIRMED
+  warningsJson   String?
+
+  rawRows RawTripRow[]
+}
+
+// Cópia fiel de cada linha da planilha original — nunca é alterada após a importação
+model RawTripRow {
+  id     String @id @default(cuid())
+  importId String
+  import Import @relation(fields: [importId], references: [id])
+  rowNumber Int
+
+  rawRowJson String // snapshot completo da linha original, todas as colunas
+
+  veiculoRaw        String
+  apelidoRaw        String
+  motoristasRaw     String?
+  dataInicioRaw     String
+  horaInicioRaw     String
+  odometroInicioRaw String?
+  dataFimRaw        String
+  horaFimRaw        String
+  odometroFimRaw    String?
+  enderecoInicioRaw String?
+  latInicioRaw      String?
+  lonInicioRaw      String?
+  enderecoFimRaw    String?
+  latFimRaw          String?
+  lonFimRaw          String?
+  kmRaw              String?
+  tempoRaw           String?
+  litrosRaw          String?
+  custoRaw           String?
+  velocidadeMaxRaw   String?
+
+  trip Trip?
+}
+
+model VehicleModel {
+  id   String @id @default(cuid())
+  name String @unique
+
+  rates    Rate[]
+  vehicles Vehicle[]
+}
+
+// Tarifa versionada por modelo + data de vigência
+model Rate {
+  id                String       @id @default(cuid())
+  modelId           String
+  model             VehicleModel @relation(fields: [modelId], references: [id])
+  ratePerKmCentavos Int
+  effectiveDate     DateTime
+  note              String?
+  createdAt         DateTime     @default(now())
+  createdBy         String?
+}
+
+model Vehicle {
+  id        String        @id @default(cuid())
+  plate     String        @unique
+  modelId   String?
+  model     VehicleModel? @relation(fields: [modelId], references: [id])
+  createdAt DateTime      @default(now())
+
+  trips Trip[]
+}
+
+// Vendedor, extraído do campo Apelido do relatório
+model Salesperson {
+  id          String   @id @default(cuid())
+  nickname    String   @unique
+  displayName String?
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  trips Trip[]
+  links SalespersonAccessLink[]
+}
+
+// Registro de trabalho de cada viagem, ligado 1:1 a uma linha bruta importada
+model Trip {
+  id            String     @id @default(cuid())
+  rawTripRowId  String     @unique
+  rawTripRow    RawTripRow @relation(fields: [rawTripRowId], references: [id])
+  periodId      String
+  period        Period     @relation(fields: [periodId], references: [id])
+  vehicleId     String
+  vehicle       Vehicle    @relation(fields: [vehicleId], references: [id])
+  salespersonId String
+  salesperson   Salesperson @relation(fields: [salespersonId], references: [id])
+
+  startDateTime DateTime
+  endDateTime   DateTime
+
+  originAddress String?
+  originLat     Float?
+  originLon     Float?
+  destAddress   String?
+  destLat       Float?
+  destLon       Float?
+
+  km              Float?
+  durationSeconds Int?
+
+  // Classificação automática: PROFISSIONAL | PESSOAL | EM_ANALISE
+  autoClassification       String
+  autoClassificationReason String
+
+  // Declaração do vendedor: PESSOAL | PROFISSIONAL
+  salespersonDeclaration   String?
+  salespersonJustification String?
+  salespersonRespondedAt   DateTime?
+
+  // Decisão final da gestão: PESSOAL | PROFISSIONAL
+  adminDecision     String?
+  adminDecisionNote String?
+  adminDecidedAt    DateTime?
+  adminDecidedBy    String?
+
+  // Status do ciclo de vida:
+  // AGUARDANDO_DEVOLUTIVA | RESPONDIDO_PELO_VENDEDOR | APROVADO_PELA_GESTAO | AJUSTADO_PELA_GESTAO | FECHADO
+  status String @default("AGUARDANDO_DEVOLUTIVA")
+
+  reimbursableKm      Float?
+  rateAppliedCentavos Int? // travado no fechamento do período
+  tripValueCentavos   Int? // travado no fechamento do período
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  auditLogs TripAuditLog[]
+}
+
+// Histórico append-only de cada mudança de estado de uma viagem
+model TripAuditLog {
+  id     String @id @default(cuid())
+  tripId String
+  trip   Trip   @relation(fields: [tripId], references: [id])
+
+  // AUTO_CLASSIFIED | SALESPERSON_DECLARED | ADMIN_APPROVED | ADMIN_ADJUSTED | ADMIN_BULK_ACTION | PERIOD_CLOSED | PERIOD_REOPENED
+  action String
+
+  actorType         String // SYSTEM | SALESPERSON | ADMIN
+  actorLabel        String?
+  previousValueJson String?
+  newValueJson      String?
+  note              String?
+  createdAt         DateTime @default(now())
+}
+
+// Link individual de acesso do vendedor a um período
+model SalespersonAccessLink {
+  id             String      @id @default(cuid())
+  token          String      @unique
+  periodId       String
+  period         Period      @relation(fields: [periodId], references: [id])
+  salespersonId  String
+  salesperson    Salesperson @relation(fields: [salespersonId], references: [id])
+  createdAt      DateTime    @default(now())
+  expiresAt      DateTime?
+  locked         Boolean     @default(false)
+  lastAccessedAt DateTime?
+  submittedAt    DateTime?
+
+  @@unique([periodId, salespersonId])
+}
+
+// Calendário de feriados: nacional (pré-carregado), municipal ou exceção manual
+model Holiday {
+  id     String   @id @default(cuid())
+  date   DateTime
+  name   String
+  scope  String // NACIONAL | MUNICIPAL | EXCECAO_MANUAL
+  type   String // FOLGA | DIA_UTIL_ESPECIAL
+  customWindowStart String? // "HH:mm", usado apenas em DIA_UTIL_ESPECIAL
+  customWindowEnd   String?
+  note      String?
+  createdBy String?
+  createdAt DateTime @default(now())
+}
+
+// Nome usado para atribuir autoria nas ações administrativas — não é autenticação
+model AdminUser {
+  id   String @id @default(cuid())
+  name String @unique
+}
