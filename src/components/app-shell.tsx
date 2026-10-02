@@ -36,8 +36,9 @@ const NAV_SECTIONS: { label: string; items: { href: string; label: string; icon:
 export function AppShell({ children, adminNamePicker }: { children: ReactNode; adminNamePicker: ReactNode }) {
   const pathname = usePathname();
   const isVendorPage = pathname?.startsWith("/vendedor");
+  const isLoginPage = pathname?.startsWith("/login");
 
-  if (isVendorPage) {
+  if (isVendorPage || isLoginPage) {
     return <>{children}</>;
   }
 

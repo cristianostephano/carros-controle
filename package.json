@@ -16,6 +16,7 @@
     "date-holidays": "^3.33.0",
     "decimal.js": "^10.6.0",
     "exceljs": "^4.4.0",
+    "jose": "^6.2.12",
     "nanoid": "^6.0.0",
     "next": "16.2.10",
     "react": "19.2.4",

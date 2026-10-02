@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AdminNamePicker } from "@/components/admin-name-picker";
 import { AppShell } from "@/components/app-shell";
+import { LogoutButton } from "@/components/logout-button";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -30,7 +31,16 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full bg-zinc-50 text-zinc-900">
-        <AppShell adminNamePicker={<AdminNamePicker />}>{children}</AppShell>
+        <AppShell
+          adminNamePicker={
+            <>
+              <AdminNamePicker />
+              <LogoutButton />
+            </>
+          }
+        >
+          {children}
+        </AppShell>
       </body>
     </html>
   );
