@@ -20,7 +20,7 @@ function isNonWorkday(day: Date, holidayMap: HolidayMap): boolean {
 }
 
 // Regra: só fim de semana e feriado contam como uso pessoal. Qualquer dia útil é profissional,
-// independente do horário.
+// independente do horário (exceto trajeto que atravessa a meia-noite, que é sempre pessoal).
 function classifySameDayTrip(start: Date, holidayMap: HolidayMap): ClassificationResult {
   if (!isNonWorkday(start, holidayMap)) {
     return { classification: "PROFISSIONAL", reason: "Dia útil" };
@@ -44,23 +44,6 @@ export function classifyTrip(
     return classifySameDayTrip(startDateTime, holidayMap);
   }
 
-  // Trajeto atravessa a meia-noite (ou mais dias): só dá pra classificar sozinho se todos os dias
-  // forem do mesmo tipo. Misturando dia útil com fim de semana/feriado não dá pra separar os km
-  // a partir do relatório, então cai em análise.
-  const days: Date[] = [];
-  const cursor = new Date(
-    Date.UTC(startDateTime.getUTCFullYear(), startDateTime.getUTCMonth(), startDateTime.getUTCDate())
-  );
-  while (cursor <= endDateTime) {
-    days.push(new Date(cursor));
-    cursor.setUTCDate(cursor.getUTCDate() + 1);
-  }
-
-  if (days.every((day) => isNonWorkday(day, holidayMap))) {
-    return { classification: "PESSOAL", reason: "Todos os dias do trajeto são fim de semana/feriado" };
-  }
-  if (days.every((day) => !isNonWorkday(day, holidayMap))) {
-    return { classification: "PROFISSIONAL", reason: "Todos os dias do trajeto são dias úteis" };
-  }
-  return { classification: "EM_ANALISE", reason: "Trajeto mistura dia útil com fim de semana/feriado" };
+  // Usar o carro na virada do dia (meia-noite) conta sempre como uso pessoal.
+  return { classification: "PESSOAL", reason: "Trajeto atravessa a meia-noite" };
 }
