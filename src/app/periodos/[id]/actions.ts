@@ -96,6 +96,18 @@ export async function reclassifyPeriod(periodId: string) {
 
   const trips = await prisma.trip.findMany({ where: { periodId } });
 
+  const now = new Date();
+  const kmFromTripIds: string[] = [];
+  const groups = new Map<string, { data: Record<string, unknown>; ids: string[] }>();
+  const logs: {
+    tripId: string;
+    action: string;
+    actorType: string;
+    previousValueJson?: string;
+    newValueJson?: string;
+    note: string;
+  }[] = [];
+
   for (const trip of trips) {
     const { classification, reason } = classifyTrip(trip.startDateTime, trip.endDateTime, holidayMap);
     const classificationChanged =
@@ -139,32 +151,45 @@ export async function reclassifyPeriod(periodId: string) {
     }
     // Se havia decisão manual de um admin de verdade, não mexemos nela aqui.
 
-    await prisma.trip.update({ where: { id: trip.id }, data: updateData });
+    if (updateData.adminDecidedAt) updateData.adminDecidedAt = now;
+    // O km reembolsável de uma viagem pessoal é o próprio km dela; copia no banco de uma vez.
+    if (shouldApprove && classification === "PESSOAL") {
+      delete updateData.reimbursableKm;
+      kmFromTripIds.push(trip.id);
+    }
+    const key = JSON.stringify(updateData);
+    const group = groups.get(key) ?? { data: updateData, ids: [] };
+    group.ids.push(trip.id);
+    groups.set(key, group);
+
     if (classificationChanged) {
-      await prisma.tripAuditLog.create({
-        data: {
-          tripId: trip.id,
-          action: "AUTO_CLASSIFIED",
-          actorType: "SYSTEM",
-          previousValueJson: JSON.stringify({
-            classification: trip.autoClassification,
-            reason: trip.autoClassificationReason,
-          }),
-          newValueJson: JSON.stringify({ classification, reason }),
-          note: "Reclassificação manual disparada pela gestão",
-        },
+      logs.push({
+        tripId: trip.id,
+        action: "AUTO_CLASSIFIED",
+        actorType: "SYSTEM",
+        previousValueJson: JSON.stringify({
+          classification: trip.autoClassification,
+          reason: trip.autoClassificationReason,
+        }),
+        newValueJson: JSON.stringify({ classification, reason }),
+        note: "Reclassificação manual disparada pela gestão",
       });
     }
     if (approvalNote) {
-      await prisma.tripAuditLog.create({
-        data: {
-          tripId: trip.id,
-          action: "AUTO_APPROVED",
-          actorType: "SYSTEM",
-          note: approvalNote,
-        },
-      });
+      logs.push({ tripId: trip.id, action: "AUTO_APPROVED", actorType: "SYSTEM", note: approvalNote });
     }
+  }
+
+  // Grava em lote (poucas consultas) em vez de uma viagem por vez: com milhares de viagens,
+  // uma consulta por viagem estourava o tempo limite do servidor.
+  for (const { data, ids } of groups.values()) {
+    await prisma.trip.updateMany({ where: { id: { in: ids } }, data });
+  }
+  if (kmFromTripIds.length > 0) {
+    await prisma.$executeRaw`UPDATE "Trip" SET "reimbursableKm" = COALESCE("km", 0) WHERE "id" = ANY(${kmFromTripIds})`;
+  }
+  for (let i = 0; i < logs.length; i += 1000) {
+    await prisma.tripAuditLog.createMany({ data: logs.slice(i, i + 1000) });
   }
 
   revalidatePath(`/periodos/${periodId}`);

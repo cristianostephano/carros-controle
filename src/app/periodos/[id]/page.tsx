@@ -18,6 +18,9 @@ const STATUS_OPTIONS = [
   { value: "FECHADO", label: "Fechado" },
 ];
 
+// Reclassificar viagens roda a partir desta página e pode demorar em quinzenas grandes.
+export const maxDuration = 60;
+
 export default async function PeriodoPage({
   params,
   searchParams,
