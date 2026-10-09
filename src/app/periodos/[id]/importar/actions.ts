@@ -3,32 +3,49 @@
 import { prisma } from "@/lib/prisma";
 import { runImport } from "@/lib/import/runImport";
 import { redirect } from "next/navigation";
+import { randomUUID } from "node:crypto";
+import { IMPORT_BUCKET, supabaseAdmin } from "@/lib/supabaseAdmin";
 
-export async function importExcel(periodId: string, formData: FormData) {
-  const files = formData.getAll("file").filter((f): f is File => f instanceof File && f.size > 0);
-  if (files.length === 0) {
-    throw new Error("Selecione ao menos um arquivo .xlsx para importar.");
+/** Passo 1: gera um endereço de envio direto ao Supabase para cada arquivo (evita o limite de 4,5 MB do Vercel). */
+export async function createUploadTargets(periodId: string, count: number) {
+  await prisma.period.findUniqueOrThrow({ where: { id: periodId } });
+  if (!Number.isInteger(count) || count < 1 || count > 30) throw new Error("Quantidade de arquivos inválida.");
+
+  const storage = supabaseAdmin().storage.from(IMPORT_BUCKET);
+  const targets: { path: string; signedUrl: string }[] = [];
+  for (let n = 0; n < count; n++) {
+    const path = `${periodId}/${randomUUID()}.xlsx`;
+    const { data, error } = await storage.createSignedUploadUrl(path);
+    if (error || !data) throw new Error(`Não foi possível preparar o envio: ${error?.message ?? "erro desconhecido"}`);
+    targets.push({ path, signedUrl: data.signedUrl });
   }
+  return targets;
+}
 
+/** Passo 2: lê os arquivos já enviados, importa e apaga os arquivos do Supabase em seguida. */
+export async function importFromStorage(periodId: string, items: { path: string; fileName: string }[]) {
+  const storage = supabaseAdmin().storage.from(IMPORT_BUCKET);
   const importIds: string[] = [];
   const failures: { fileName: string; error: string }[] = [];
 
-  for (const file of files) {
+  for (const item of items) {
     try {
-      const buffer = Buffer.from(await file.arrayBuffer());
-      const { importId } = await runImport({ periodId, buffer, fileName: file.name });
+      if (!item.path.startsWith(`${periodId}/`) || item.path.includes("..")) throw new Error("Caminho inválido.");
+      const { data, error } = await storage.download(item.path);
+      if (error || !data) throw new Error(error?.message ?? "Arquivo não encontrado no armazenamento.");
+      const buffer = Buffer.from(await data.arrayBuffer());
+      const { importId } = await runImport({ periodId, buffer, fileName: item.fileName });
       importIds.push(importId);
     } catch (e) {
-      failures.push({ fileName: file.name, error: e instanceof Error ? e.message : String(e) });
+      failures.push({ fileName: item.fileName, error: e instanceof Error ? e.message : String(e) });
+    } finally {
+      await storage.remove([item.path]).catch(() => {});
     }
   }
 
   const params = new URLSearchParams();
   if (importIds.length > 0) params.set("ids", importIds.join(","));
-  if (failures.length > 0) {
-    params.set("falhas", failures.map((f) => `${f.fileName}: ${f.error}`).join("|"));
-  }
-
+  if (failures.length > 0) params.set("falhas", failures.map((f) => `${f.fileName}: ${f.error}`).join("|"));
   redirect(`/periodos/${periodId}/importacoes/lote?${params.toString()}`);
 }
 
