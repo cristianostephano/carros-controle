@@ -1,7 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/prisma";
-import { autoApprovalTripFields, pendingGestaoReviewFields, vendorPessoalAutoApprovalFields } from "@/lib/autoApproval";
+import { vendorPessoalAutoApprovalFields, vendorProfissionalApprovalFields } from "@/lib/autoApproval";
 
 export type TripResponse = {
   tripId: string;
@@ -26,19 +26,13 @@ export async function submitResponses(token: string, responses: TripResponse[]) 
     // reabrir um trajeto cujo reembolso já foi calculado e congelado.
     if (!trip || trip.status === "FECHADO") continue;
 
-    // Confiamos na palavra do vendedor: "pessoal" e "profissional dentro do
-    // expediente" já entram aprovados direto, sem passar pela gestão. O único caso
-    // que realmente precisa de revisão é "profissional" contrariando a sugestão (fim de semana/feriado) —
-    // e isso vale mesmo que o trajeto já tivesse uma decisão anterior, porque a
-    // resposta mais recente do vendedor é sempre a informação mais atual.
-    const alwaysReview = trip.autoClassification === "EM_ANALISE";
-    const decisionFields = alwaysReview
-      ? pendingGestaoReviewFields()
-      : r.declaration === "PESSOAL"
+    // A palavra do vendedor é a realidade: pessoal ou profissional, a resposta já fica
+    // aprovada direto, sem fila de revisão. A gestão só analisa o relatório final.
+    // A resposta mais recente sempre vale, mesmo sobre uma decisão anterior.
+    const decisionFields =
+      r.declaration === "PESSOAL"
         ? vendorPessoalAutoApprovalFields(trip.km)
-        : trip.autoClassification === "PROFISSIONAL"
-          ? autoApprovalTripFields("PROFISSIONAL")!
-          : pendingGestaoReviewFields();
+        : vendorProfissionalApprovalFields();
 
     await prisma.trip.update({
       where: { id: r.tripId },
@@ -59,30 +53,17 @@ export async function submitResponses(token: string, responses: TripResponse[]) 
       },
     });
 
-    if (decisionFields.adminDecision) {
-      await prisma.tripAuditLog.create({
-        data: {
-          tripId: r.tripId,
-          action: "AUTO_APPROVED",
-          actorType: "SYSTEM",
-          note:
-            r.declaration === "PESSOAL"
-              ? "Aprovado automaticamente porque o vendedor declarou uso pessoal"
-              : "Aprovado automaticamente por ser dia útil",
-        },
-      });
-    } else {
-      await prisma.tripAuditLog.create({
-        data: {
-          tripId: r.tripId,
-          action: "AGUARDANDO_REVISAO",
-          actorType: "SYSTEM",
-          note: alwaysReview
-            ? "Aguarda análise da gestão: trajeto atravessa a meia-noite"
-            : "Volta para revisão da gestão: vendedor declarou profissional em fim de semana/feriado",
-        },
-      });
-    }
+    await prisma.tripAuditLog.create({
+      data: {
+        tripId: r.tripId,
+        action: "AUTO_APPROVED",
+        actorType: "SYSTEM",
+        note:
+          r.declaration === "PESSOAL"
+            ? "Aprovado automaticamente porque o vendedor declarou uso pessoal"
+            : "Aprovado automaticamente porque o vendedor declarou uso profissional",
+      },
+    });
   }
 
   await prisma.salespersonAccessLink.update({

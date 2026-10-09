@@ -39,20 +39,16 @@ export function vendorPessoalAutoApprovalFields(km: number | null) {
   };
 }
 
-/**
- * Único caso que realmente exige revisão da gestão: o vendedor declara "profissional"
- * para um trajeto fora do expediente (ou em análise). Isso vale mesmo que o trajeto já
- * tivesse uma decisão anterior (automática ou manual) — a resposta mais recente do
- * vendedor é sempre a informação mais atual, então qualquer decisão antiga é desfeita e
- * o trajeto volta pra fila de revisão.
- */
-export function pendingGestaoReviewFields() {
+export const VENDOR_PROFISSIONAL_APPROVAL_LABEL = "Sistema (vendedor declarou profissional)";
+
+/** Declaração "profissional" do vendedor também vale como definitiva: entra aprovada, sem reembolso. */
+export function vendorProfissionalApprovalFields() {
   return {
-    adminDecision: null,
+    adminDecision: "PROFISSIONAL" as const,
     adminDecisionNote: null,
-    adminDecidedAt: null,
-    adminDecidedBy: null,
-    status: "RESPONDIDO_PELO_VENDEDOR" as const,
-    reimbursableKm: null,
+    adminDecidedAt: new Date(),
+    adminDecidedBy: VENDOR_PROFISSIONAL_APPROVAL_LABEL,
+    status: "APROVADO_PELA_GESTAO" as const,
+    reimbursableKm: 0,
   };
 }

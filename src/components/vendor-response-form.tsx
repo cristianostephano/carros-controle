@@ -35,7 +35,7 @@ export function VendorResponseForm({ token, rows }: { token: string; rows: Respo
         r.id,
         (r.salespersonDeclaration as "PESSOAL" | "PROFISSIONAL" | null) ??
           (r.adminDecision as "PESSOAL" | "PROFISSIONAL" | null) ??
-          (r.autoClassification === "PESSOAL" || r.autoClassification === "EM_ANALISE" ? "PESSOAL" : null),
+          (r.autoClassification === "PESSOAL" ? "PESSOAL" : null),
       ])
     )
   );
