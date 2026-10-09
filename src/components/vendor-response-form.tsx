@@ -26,16 +26,16 @@ const CLASSIFICATION_LABEL: Record<string, string> = {
 };
 
 export function VendorResponseForm({ token, rows }: { token: string; rows: ResponseTripRow[] }) {
-  // Só pré-preenche com uma resposta real (do próprio vendedor ou já decidida pela
-  // gestão) — nunca com a mera sugestão automática, pra não sugerir uma resposta que
-  // ninguém realmente confirmou ainda (isso deixava alguns cartões com um "flag" de
-  // pré-seleção e outros não, de forma inconsistente e confusa).
+  // Pré-preenche com a resposta real (do vendedor ou já decidida pela gestão). Sem resposta,
+  // fim de semana, feriado e virada de meia-noite já vêm marcados como pessoal — o vendedor só
+  // precisa trocar para profissional quando for o caso.
   const [answers, setAnswers] = useState<Record<string, "PESSOAL" | "PROFISSIONAL" | null>>(
     Object.fromEntries(
       rows.map((r) => [
         r.id,
         (r.salespersonDeclaration as "PESSOAL" | "PROFISSIONAL" | null) ??
-          (r.adminDecision as "PESSOAL" | "PROFISSIONAL" | null),
+          (r.adminDecision as "PESSOAL" | "PROFISSIONAL" | null) ??
+          (r.autoClassification === "PESSOAL" || r.autoClassification === "EM_ANALISE" ? "PESSOAL" : null),
       ])
     )
   );

@@ -44,6 +44,7 @@ export function classifyTrip(
     return classifySameDayTrip(startDateTime, holidayMap);
   }
 
-  // Usar o carro na virada do dia (meia-noite) conta sempre como uso pessoal.
-  return { classification: "PESSOAL", reason: "Trajeto atravessa a meia-noite" };
+  // Usar o carro na virada do dia (meia-noite) é tratado como pessoal, mas sempre passa pela
+  // análise da gestão. O formulário do vendedor já vem marcado como pessoal para esses casos.
+  return { classification: "EM_ANALISE", reason: "Trajeto atravessa a meia-noite" };
 }

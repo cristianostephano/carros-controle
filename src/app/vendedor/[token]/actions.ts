@@ -31,8 +31,10 @@ export async function submitResponses(token: string, responses: TripResponse[]) 
     // que realmente precisa de revisão é "profissional" contrariando a sugestão (fim de semana/feriado) —
     // e isso vale mesmo que o trajeto já tivesse uma decisão anterior, porque a
     // resposta mais recente do vendedor é sempre a informação mais atual.
-    const decisionFields =
-      r.declaration === "PESSOAL"
+    const alwaysReview = trip.autoClassification === "EM_ANALISE";
+    const decisionFields = alwaysReview
+      ? pendingGestaoReviewFields()
+      : r.declaration === "PESSOAL"
         ? vendorPessoalAutoApprovalFields(trip.km)
         : trip.autoClassification === "PROFISSIONAL"
           ? autoApprovalTripFields("PROFISSIONAL")!
@@ -75,7 +77,9 @@ export async function submitResponses(token: string, responses: TripResponse[]) 
           tripId: r.tripId,
           action: "AGUARDANDO_REVISAO",
           actorType: "SYSTEM",
-          note: "Volta para revisão da gestão: vendedor declarou profissional em fim de semana/feriado",
+          note: alwaysReview
+            ? "Aguarda análise da gestão: trajeto atravessa a meia-noite"
+            : "Volta para revisão da gestão: vendedor declarou profissional em fim de semana/feriado",
         },
       });
     }
