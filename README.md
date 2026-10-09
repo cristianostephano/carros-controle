@@ -17,7 +17,9 @@ Sistema para controlar o uso pessoal x profissional dos carros da empresa e calc
 
 Para parar, volte no terminal e aperte `Ctrl+C`.
 
-Os dados ficam guardados num único arquivo, `dev.db`, dentro desta mesma pasta. Fazer backup é simplesmente copiar esse arquivo para outro lugar (com o sistema parado).
+Os dados ficam num banco Postgres no Supabase (região São Paulo). O endereço do banco (`DATABASE_URL`), a senha do painel (`ADMIN_PASSWORD`) e a chave de sessão (`SESSION_SECRET`) ficam no arquivo `.env` (que nunca vai para o GitHub) e, em produção, nas variáveis de ambiente do Vercel. O painel da gestão exige essa senha para entrar; só o link individual do vendedor (`/vendedor/...`) é aberto.
+
+O arquivo `dev.db` antigo (SQLite) foi substituído pelo Supabase e fica na pasta só como cópia de segurança do que existia antes da migração. Backups do banco novo são feitos pelo próprio Supabase (painel do projeto → Database → Backups).
 
 ## Fluxo de uso normal (a cada quinzena)
 
@@ -36,11 +38,11 @@ Os dados ficam guardados num único arquivo, `dev.db`, dentro desta mesma pasta.
 ## Se algo der errado
 
 - **A tela não abre**: confirme que o terminal ainda está rodando `npm run dev` e que não apareceu nenhum erro nele.
-- **Perdi alguma coisa**: se você tem uma cópia de backup do arquivo `dev.db`, pode substituir o atual por ela (com o sistema parado) para voltar a um estado anterior.
+- **Perdi alguma coisa**: restaure um backup pelo painel do Supabase (Database → Backups).
 - **Preciso reclassificar viagens depois de mudar um feriado**: dentro do período, use o botão **Reclassificar viagens**.
 
 ## O que ainda não existe (fora do escopo da primeira versão)
 
-- Login/senha para os vendedores (o link individual longo é a única proteção, como combinado).
+- Login/senha para os vendedores (o link individual longo é a única proteção, como combinado). A gestão entra com uma senha única compartilhada.
 - Envio automático de WhatsApp (o sistema só copia a mensagem pronta).
 - Integração direta com o rastreador (a importação é sempre por arquivo Excel).
