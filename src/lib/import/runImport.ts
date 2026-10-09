@@ -189,7 +189,7 @@ export async function runImport(params: {
         action: "AUTO_APPROVED",
         actorType: "SYSTEM",
         newValueJson: JSON.stringify({ adminDecision: "PROFISSIONAL" }),
-        note: "Aprovado automaticamente por estar dentro do expediente",
+        note: "Aprovado automaticamente por ser dia útil",
       });
     }
   }

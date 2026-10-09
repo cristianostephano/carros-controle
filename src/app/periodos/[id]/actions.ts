@@ -122,7 +122,7 @@ export async function reclassifyPeriod(periodId: string) {
       // Profissional (novo ou já era) e ninguém decidiu manualmente ainda — aprova
       // (ou reafirma a aprovação) automaticamente.
       Object.assign(updateData, autoApproval);
-      approvalNote = "Aprovado automaticamente por estar dentro do expediente";
+      approvalNote = "Aprovado automaticamente por ser dia útil";
     } else if (shouldRevertApproval) {
       // Deixou de ser profissional (ex: virou feriado) e a aprovação era só automática —
       // volta pra fila de revisão da gestão em vez de ficar aprovado indevidamente.
@@ -132,7 +132,7 @@ export async function reclassifyPeriod(periodId: string) {
       updateData.adminDecidedBy = null;
       updateData.status = "AGUARDANDO_DEVOLUTIVA";
       updateData.reimbursableKm = null;
-      approvalNote = "Aprovação automática desfeita — deixou de ser profissional dentro do expediente";
+      approvalNote = "Aprovação automática desfeita — deixou de ser dia útil";
     }
     // Se havia decisão manual de um admin de verdade, não mexemos nela aqui.
 

@@ -1,4 +1,4 @@
-import { dateKeyUTC, getBusinessWindow, minutesOfDayUTC, type HolidayInfo } from "./businessHours";
+import { dateKeyUTC, getBusinessWindow, type HolidayInfo } from "./businessHours";
 import { sameCalendarDayUTC } from "@/lib/dates";
 
 export type AutoClassification = "PROFISSIONAL" | "PESSOAL" | "EM_ANALISE" | "NAO_CLASSIFICADO";
@@ -15,36 +15,24 @@ function weekdayName(date: Date): string {
   return date.getUTCDay() === 0 ? "domingo" : "sábado";
 }
 
-function classifySameDayTrip(start: Date, end: Date, holidayMap: HolidayMap): ClassificationResult {
+function isNonWorkday(day: Date, holidayMap: HolidayMap): boolean {
+  return getBusinessWindow(day, holidayMap.get(dateKeyUTC(day)) ?? null) == null;
+}
+
+// Regra: só fim de semana e feriado contam como uso pessoal. Qualquer dia útil é profissional,
+// independente do horário.
+function classifySameDayTrip(start: Date, holidayMap: HolidayMap): ClassificationResult {
+  if (!isNonWorkday(start, holidayMap)) {
+    return { classification: "PROFISSIONAL", reason: "Dia útil" };
+  }
   const holiday = holidayMap.get(dateKeyUTC(start)) ?? null;
-  const window = getBusinessWindow(start, holiday);
-
-  if (window == null) {
-    const weekday = start.getUTCDay();
-    const isWeekend = weekday === 0 || weekday === 6;
-    const reason = holiday
-      ? `Feriado: ${holiday.name}`
-      : isWeekend
-        ? `Fim de semana (${weekdayName(start)})`
-        : "Sem expediente";
-    return { classification: "PESSOAL", reason };
-  }
-
-  const startMin = minutesOfDayUTC(start);
-  const endMin = minutesOfDayUTC(end);
-  const startIn = startMin >= window.startMinutes && startMin <= window.endMinutes;
-  const endIn = endMin >= window.startMinutes && endMin <= window.endMinutes;
-
-  if (startIn && endIn) {
-    return { classification: "PROFISSIONAL", reason: "Dentro do expediente" };
-  }
-  if (!startIn && !endIn) {
-    if (startMin < window.startMinutes && endMin > window.endMinutes) {
-      return { classification: "EM_ANALISE", reason: "Trajeto atravessa todo o expediente" };
-    }
-    return { classification: "PESSOAL", reason: "Fora do expediente" };
-  }
-  return { classification: "EM_ANALISE", reason: "Cruza limite do expediente" };
+  const weekday = start.getUTCDay();
+  const reason = holiday
+    ? `Feriado: ${holiday.name}`
+    : weekday === 0 || weekday === 6
+      ? `Fim de semana (${weekdayName(start)})`
+      : "Dia sem expediente";
+  return { classification: "PESSOAL", reason };
 }
 
 export function classifyTrip(
@@ -53,26 +41,26 @@ export function classifyTrip(
   holidayMap: HolidayMap
 ): ClassificationResult {
   if (sameCalendarDayUTC(startDateTime, endDateTime)) {
-    return classifySameDayTrip(startDateTime, endDateTime, holidayMap);
+    return classifySameDayTrip(startDateTime, holidayMap);
   }
 
-  // Trajeto atravessa a meia-noite (ou mais dias): só é "Pessoal" se TODOS os dias
-  // envolvidos forem sem expediente; caso contrário não dá pra separar os km com
-  // precisão a partir do relatório, então cai em análise.
+  // Trajeto atravessa a meia-noite (ou mais dias): só dá pra classificar sozinho se todos os dias
+  // forem do mesmo tipo. Misturando dia útil com fim de semana/feriado não dá pra separar os km
+  // a partir do relatório, então cai em análise.
   const days: Date[] = [];
-  const cursor = new Date(startDateTime);
+  const cursor = new Date(
+    Date.UTC(startDateTime.getUTCFullYear(), startDateTime.getUTCMonth(), startDateTime.getUTCDate())
+  );
   while (cursor <= endDateTime) {
     days.push(new Date(cursor));
     cursor.setUTCDate(cursor.getUTCDate() + 1);
   }
 
-  const allNonBusiness = days.every((day) => {
-    const holiday = holidayMap.get(dateKeyUTC(day)) ?? null;
-    return getBusinessWindow(day, holiday) == null;
-  });
-
-  if (allNonBusiness) {
-    return { classification: "PESSOAL", reason: "Todos os dias do trajeto são sem expediente" };
+  if (days.every((day) => isNonWorkday(day, holidayMap))) {
+    return { classification: "PESSOAL", reason: "Todos os dias do trajeto são fim de semana/feriado" };
   }
-  return { classification: "EM_ANALISE", reason: "Trajeto atravessa múltiplos dias" };
+  if (days.every((day) => !isNonWorkday(day, holidayMap))) {
+    return { classification: "PROFISSIONAL", reason: "Todos os dias do trajeto são dias úteis" };
+  }
+  return { classification: "EM_ANALISE", reason: "Trajeto mistura dia útil com fim de semana/feriado" };
 }

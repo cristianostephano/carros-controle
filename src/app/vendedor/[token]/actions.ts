@@ -28,7 +28,7 @@ export async function submitResponses(token: string, responses: TripResponse[]) 
 
     // Confiamos na palavra do vendedor: "pessoal" e "profissional dentro do
     // expediente" já entram aprovados direto, sem passar pela gestão. O único caso
-    // que realmente precisa de revisão é "profissional" contrariando o expediente —
+    // que realmente precisa de revisão é "profissional" contrariando a sugestão (fim de semana/feriado) —
     // e isso vale mesmo que o trajeto já tivesse uma decisão anterior, porque a
     // resposta mais recente do vendedor é sempre a informação mais atual.
     const decisionFields =
@@ -66,7 +66,7 @@ export async function submitResponses(token: string, responses: TripResponse[]) 
           note:
             r.declaration === "PESSOAL"
               ? "Aprovado automaticamente porque o vendedor declarou uso pessoal"
-              : "Aprovado automaticamente por estar dentro do expediente",
+              : "Aprovado automaticamente por ser dia útil",
         },
       });
     } else {
@@ -75,7 +75,7 @@ export async function submitResponses(token: string, responses: TripResponse[]) 
           tripId: r.tripId,
           action: "AGUARDANDO_REVISAO",
           actorType: "SYSTEM",
-          note: "Volta para revisão da gestão: vendedor declarou profissional fora do expediente",
+          note: "Volta para revisão da gestão: vendedor declarou profissional em fim de semana/feriado",
         },
       });
     }

@@ -325,7 +325,7 @@ export default async function PeriodoPage({
         <DashboardCard title="Reembolso e filtro atual" icon={<CashIcon />}>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <StatTile value={`R$ ${formatCentavosAsReais(valorTotalReembolsarCentavos)}`} label="Valor a reembolsar" color="emerald" />
-            <StatTile value={String(trajetosForaDoExpediente)} label="Fora do expediente" color="violet" />
+            <StatTile value={String(trajetosForaDoExpediente)} label="Fim de semana/feriado" color="violet" />
             <StatTile value={String(trips.length)} label="Viagens no filtro" color="navy" />
             <StatTile value={String(salespeople.length)} label="Vendedores" color="zinc" />
           </div>
