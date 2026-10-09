@@ -1,22 +1,33 @@
 /**
- * Com milhares de viagens por quinzena, revisar manualmente cada uma que já é
- * claramente profissional (dentro do expediente) não é viável. Por isso, toda viagem
- * classificada automaticamente como PROFISSIONAL já entra aprovada, deixando a fila de
- * revisão só com o que realmente precisa de decisão (pessoal ou em análise). A gestão
- * sempre pode ajustar manualmente depois, se algum caso for exceção.
+ * Com milhares de viagens por quinzena, revisar uma a uma não é viável. Pela regra atual, toda
+ * viagem já nasce com resposta definida e confirmada: dia útil é PROFISSIONAL, fim de semana,
+ * feriado e virada de meia-noite são PESSOAL. O vendedor pode trocar qualquer uma depois
+ * (a resposta dele é a que vale), enquanto o período não estiver fechado.
  */
 export const AUTO_APPROVAL_LABEL = "Sistema (aprovação automática)";
 
-export function autoApprovalTripFields(classification: string) {
-  if (classification !== "PROFISSIONAL") return null;
-  return {
-    adminDecision: "PROFISSIONAL" as const,
-    adminDecisionNote: null,
-    adminDecidedAt: new Date(),
-    adminDecidedBy: AUTO_APPROVAL_LABEL,
-    status: "APROVADO_PELA_GESTAO" as const,
-    reimbursableKm: 0,
-  };
+export function autoApprovalTripFields(classification: string, km: number | null) {
+  if (classification === "PROFISSIONAL") {
+    return {
+      adminDecision: "PROFISSIONAL" as const,
+      adminDecisionNote: null,
+      adminDecidedAt: new Date(),
+      adminDecidedBy: AUTO_APPROVAL_LABEL,
+      status: "APROVADO_PELA_GESTAO" as const,
+      reimbursableKm: 0,
+    };
+  }
+  if (classification === "PESSOAL") {
+    return {
+      adminDecision: "PESSOAL" as const,
+      adminDecisionNote: null,
+      adminDecidedAt: new Date(),
+      adminDecidedBy: AUTO_APPROVAL_LABEL,
+      status: "APROVADO_PELA_GESTAO" as const,
+      reimbursableKm: km ?? 0,
+    };
+  }
+  return null;
 }
 
 /**

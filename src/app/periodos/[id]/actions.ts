@@ -102,7 +102,7 @@ export async function reclassifyPeriod(periodId: string) {
       classification !== trip.autoClassification || reason !== trip.autoClassificationReason;
 
     const wasAutoDecision = trip.adminDecidedBy === AUTO_APPROVAL_LABEL;
-    const autoApproval = autoApprovalTripFields(classification);
+    const autoApproval = autoApprovalTripFields(classification, trip.km);
     // "!trip.adminDecision" pega tanto reclassificações quanto o preenchimento retroativo de
     // viagens antigas que já eram profissionais mas nunca tinham sido aprovadas (por terem sido
     // importadas antes desta regra existir) — por isso não pode depender de classificationChanged.
@@ -122,7 +122,10 @@ export async function reclassifyPeriod(periodId: string) {
       // Profissional (novo ou já era) e ninguém decidiu manualmente ainda — aprova
       // (ou reafirma a aprovação) automaticamente.
       Object.assign(updateData, autoApproval);
-      approvalNote = "Aprovado automaticamente por ser dia útil";
+      approvalNote =
+        classification === "PESSOAL"
+          ? "Confirmado automaticamente como pessoal (fim de semana, feriado ou virada de meia-noite)"
+          : "Confirmado automaticamente como profissional (dia útil)";
     } else if (shouldRevertApproval) {
       // Deixou de ser profissional (ex: virou feriado) e a aprovação era só automática —
       // volta pra fila de revisão da gestão em vez de ficar aprovado indevidamente.
@@ -132,7 +135,7 @@ export async function reclassifyPeriod(periodId: string) {
       updateData.adminDecidedBy = null;
       updateData.status = "AGUARDANDO_DEVOLUTIVA";
       updateData.reimbursableKm = null;
-      approvalNote = "Aprovação automática desfeita — deixou de ser dia útil";
+      approvalNote = "Confirmação automática desfeita — a viagem deixou de ter classificação automática";
     }
     // Se havia decisão manual de um admin de verdade, não mexemos nela aqui.
 

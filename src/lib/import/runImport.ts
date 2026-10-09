@@ -148,7 +148,7 @@ export async function runImport(params: {
       velocidadeMaxRaw: row.velocidadeMaxRaw,
     });
 
-    const autoApproval = autoApprovalTripFields(classification);
+    const autoApproval = autoApprovalTripFields(classification, row.km);
 
     tripData.push({
       id: tripId,
@@ -188,8 +188,11 @@ export async function runImport(params: {
         tripId,
         action: "AUTO_APPROVED",
         actorType: "SYSTEM",
-        newValueJson: JSON.stringify({ adminDecision: "PROFISSIONAL" }),
-        note: "Aprovado automaticamente por ser dia útil",
+        newValueJson: JSON.stringify({ adminDecision: autoApproval.adminDecision }),
+        note:
+          autoApproval.adminDecision === "PESSOAL"
+            ? "Confirmado automaticamente como pessoal (fim de semana, feriado ou virada de meia-noite)"
+            : "Confirmado automaticamente como profissional (dia útil)",
       });
     }
   }
