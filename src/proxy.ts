@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { verifySessionCookie } from "@/lib/session";
 
-// Único ponto de acesso sem senha: o link individual do vendedor e a tela de login.
-const PUBLIC_PREFIXES = ["/vendedor", "/login"];
+// Acessos sem senha: o link individual do vendedor, a tela de login e o ping diário do banco.
+const PUBLIC_PREFIXES = ["/vendedor", "/login", "/api/keepalive"];
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
@@ -22,5 +22,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|vendedor|login).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|vendedor|login|api/keepalive).*)"],
 };
