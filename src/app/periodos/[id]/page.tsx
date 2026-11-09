@@ -8,6 +8,7 @@ import { Badge, DashboardCard, StatTile } from "@/components/dashboard-ui";
 import { formatCentavosAsReais } from "@/lib/money";
 import { periodDayBounds } from "@/lib/dates";
 import { buildHolidayMap } from "@/lib/classification/buildHolidayMap";
+import { rhDeliveryDate } from "@/lib/periods";
 import { classifyOffHoursBucket } from "@/lib/classification/offHoursBreakdown";
 
 const STATUS_OPTIONS = [
@@ -218,6 +219,12 @@ export default async function PeriodoPage({
           <p className="text-sm text-zinc-500">
             {formatDateBR(period.startDate)} a {formatDateBR(period.endDate)} · Status: {period.status}
           </p>
+          {period.responseDeadline && (
+            <p className="text-sm text-zinc-500">
+              Vendedores ajustam até {formatDateBR(period.responseDeadline)} · Entrega ao RH:{" "}
+              <span className="font-medium text-zinc-700">{formatDateBR(rhDeliveryDate(period.responseDeadline))}</span>
+            </p>
+          )}
         </div>
         <div className="flex gap-3">
           <form action={reclassifyAction}>

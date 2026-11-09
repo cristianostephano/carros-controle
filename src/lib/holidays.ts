@@ -29,3 +29,12 @@ export function lastBusinessDayOfMonth(year: number, month1to12: number): Date {
   }
   return d;
 }
+
+/** O próprio dia, se for útil; senão o próximo dia útil (pula fim de semana e feriado nacional). */
+export function nextBusinessDayOnOrAfter(date: Date): Date {
+  let d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 12, 0, 0));
+  while (!isBusinessDay(d)) {
+    d = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1, 12, 0, 0));
+  }
+  return d;
+}

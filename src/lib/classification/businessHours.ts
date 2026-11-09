@@ -6,8 +6,10 @@ export type HolidayInfo = {
   customWindow: TimeWindow | null;
 };
 
-const DEFAULT_WINDOW_MON_THU: TimeWindow = { startMinutes: 8 * 60, endMinutes: 18 * 60 };
-const DEFAULT_WINDOW_FRI: TimeWindow = { startMinutes: 8 * 60, endMinutes: 17 * 60 };
+// Horário de trabalho padrão de todos os vendedores: expediente (08h-18h) com 2h de folga antes e depois.
+export const WORK_START_MINUTES = 6 * 60;
+export const WORK_END_MINUTES = 20 * 60;
+const DEFAULT_WINDOW: TimeWindow = { startMinutes: WORK_START_MINUTES, endMinutes: WORK_END_MINUTES };
 
 export function dateKeyUTC(date: Date): string {
   const y = date.getUTCFullYear();
@@ -37,14 +39,12 @@ export function getBusinessWindow(date: Date, holiday: HolidayInfo | null): Time
 
   if (holiday?.type === "DIA_UTIL_ESPECIAL") {
     if (holiday.customWindow) return holiday.customWindow;
-    return DEFAULT_WINDOW_MON_THU;
+    return DEFAULT_WINDOW;
   }
 
   if (isWeekend) return null;
 
-  if (weekday >= 1 && weekday <= 4) return DEFAULT_WINDOW_MON_THU; // seg-qui
-  if (weekday === 5) return DEFAULT_WINDOW_FRI; // sex
-  return null;
+  return DEFAULT_WINDOW; // seg-sex
 }
 
 export { parseHHMM };
