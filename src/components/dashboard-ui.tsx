@@ -40,7 +40,7 @@ export function DashboardCard({
 export function StatTile({ value, label }: { value: string | number; label: string }) {
   return (
     <div className="rounded-lg bg-zinc-50 px-3 py-2.5 text-center">
-      <div className="text-xl font-bold text-brand-navy">{value}</div>
+      <div className={`whitespace-nowrap font-bold text-brand-navy ${String(value).length > 7 ? "text-base" : "text-xl"}`}>{value}</div>
       <div className="mt-0.5 text-[11px] leading-tight text-zinc-500">{label}</div>
     </div>
   );

@@ -71,7 +71,6 @@ export default async function PeriodoPage({
   let kmTotal = 0;
   let kmProfissional = 0;
   let kmPessoalConfirmado = 0;
-  let kmEmAnaliseOuPendente = 0;
   let valorTotalReembolsarCentavos = 0;
   let kmAReembolsar = 0;
 
@@ -102,7 +101,6 @@ export default async function PeriodoPage({
       kmProfissional += km;
       resumo.kmProfissional += km;
     } else {
-      kmEmAnaliseOuPendente += km;
       if (t.autoClassification === "PESSOAL" || t.autoClassification === "NAO_CLASSIFICADO") {
         resumo.kmPessoal += km;
       }
@@ -149,25 +147,25 @@ export default async function PeriodoPage({
           <ReclassifyButton periodId={id} />
           <Link
             href={`/periodos/${id}/vendedores`}
-            className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+            className="rounded-md border border-zinc-300 px-4 py-2 text-center text-sm font-medium text-zinc-700 hover:bg-zinc-50"
           >
             Revisar por vendedor
           </Link>
           <Link
             href={`/periodos/${id}/pessoal`}
-            className="rounded-md border border-amber-400 px-4 py-2 text-sm font-medium text-amber-800 hover:bg-amber-50"
+            className="rounded-md border border-amber-400 px-4 py-2 text-center text-sm font-medium text-amber-800 hover:bg-amber-50"
           >
             Uso pessoal
           </Link>
           <Link
             href={`/periodos/${id}/fechar`}
-            className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+            className="rounded-md border border-zinc-300 px-4 py-2 text-center text-sm font-medium text-zinc-700 hover:bg-zinc-50"
           >
             {period.status === "CLOSED" ? "Ver fechamento" : "Fechar período"}
           </Link>
           <Link
             href={`/periodos/${id}/importar`}
-            className="rounded-md bg-brand-navy px-4 py-2 text-sm font-medium text-white hover:bg-brand-navy-light"
+            className="rounded-md bg-brand-navy px-4 py-2 text-center text-sm font-medium text-white hover:bg-brand-navy-light"
           >
             Importar planilha
           </Link>
@@ -237,11 +235,10 @@ export default async function PeriodoPage({
       {/* KPIs */}
       <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2">
         <DashboardCard title="Km rodado no período" icon={<KmIcon />}>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             <StatTile value={`${kmTotal.toFixed(0)}`} label="Km total" />
             <StatTile value={`${kmProfissional.toFixed(0)}`} label="Km profissional" />
             <StatTile value={`${kmPessoalConfirmado.toFixed(0)}`} label="Km pessoal confirmado" />
-            <StatTile value={`${kmEmAnaliseOuPendente.toFixed(0)}`} label="Km em análise/pendente" />
           </div>
         </DashboardCard>
         <DashboardCard title="Reembolso e filtro atual" icon={<CashIcon />}>
