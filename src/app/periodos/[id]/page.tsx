@@ -314,18 +314,18 @@ export default async function PeriodoPage({
       <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-2">
         <DashboardCard title="Km rodado no período" icon={<KmIcon />}>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <StatTile value={`${kmTotal.toFixed(0)}`} label="Km total" color="navy" />
-            <StatTile value={`${kmProfissional.toFixed(0)}`} label="Km profissional" color="emerald" />
-            <StatTile value={`${kmPessoalConfirmado.toFixed(0)}`} label="Km pessoal confirmado" color="amber" />
-            <StatTile value={`${kmEmAnaliseOuPendente.toFixed(0)}`} label="Km em análise/pendente" color="rose" />
+            <StatTile value={`${kmTotal.toFixed(0)}`} label="Km total" />
+            <StatTile value={`${kmProfissional.toFixed(0)}`} label="Km profissional" />
+            <StatTile value={`${kmPessoalConfirmado.toFixed(0)}`} label="Km pessoal confirmado" />
+            <StatTile value={`${kmEmAnaliseOuPendente.toFixed(0)}`} label="Km em análise/pendente" />
           </div>
         </DashboardCard>
         <DashboardCard title="Reembolso e filtro atual" icon={<CashIcon />}>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <StatTile value={`R$ ${formatCentavosAsReais(valorTotalReembolsarCentavos)}`} label="Valor a reembolsar" color="emerald" />
-            <StatTile value={String(trajetosForaDoExpediente)} label="Fim de semana/feriado" color="violet" />
-            <StatTile value={String(trips.length)} label="Viagens no filtro" color="navy" />
-            <StatTile value={String(salespeople.length)} label="Vendedores" color="zinc" />
+            <StatTile value={`R$ ${formatCentavosAsReais(valorTotalReembolsarCentavos)}`} label="Valor a reembolsar" />
+            <StatTile value={String(trajetosForaDoExpediente)} label="Fim de semana/feriado" />
+            <StatTile value={String(trips.length)} label="Viagens no filtro" />
+            <StatTile value={String(salespeople.length)} label="Vendedores" />
           </div>
         </DashboardCard>
       </div>

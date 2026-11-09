@@ -37,27 +37,10 @@ export function DashboardCard({
   );
 }
 
-const TILE_COLORS = {
-  emerald: "text-emerald-600",
-  amber: "text-amber-600",
-  violet: "text-violet-600",
-  rose: "text-rose-600",
-  navy: "text-brand-navy",
-  zinc: "text-zinc-700",
-} as const;
-
-export function StatTile({
-  value,
-  label,
-  color = "zinc",
-}: {
-  value: string | number;
-  label: string;
-  color?: keyof typeof TILE_COLORS;
-}) {
+export function StatTile({ value, label }: { value: string | number; label: string }) {
   return (
     <div className="rounded-lg bg-zinc-50 px-3 py-2.5 text-center">
-      <div className={`text-xl font-bold ${TILE_COLORS[color]}`}>{value}</div>
+      <div className="text-xl font-bold text-brand-navy">{value}</div>
       <div className="mt-0.5 text-[11px] leading-tight text-zinc-500">{label}</div>
     </div>
   );
