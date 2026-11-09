@@ -1,4 +1,4 @@
-import { createPeriod, generateMonthPeriods, generateMonthlyPeriod } from "@/app/periodos/actions";
+import { createPeriod, generateMonthlyPeriod } from "@/app/periodos/actions";
 
 export default function NovoPeriodoPage() {
   return (
@@ -22,26 +22,6 @@ export default function NovoPeriodoPage() {
             className="rounded-md bg-brand-navy px-4 py-2 text-sm font-medium text-white hover:bg-brand-navy-light"
           >
             Gerar ciclo mensal
-          </button>
-        </form>
-      </div>
-
-      <div className="mb-8 rounded-md border bg-white p-6">
-        <h2 className="mb-1 text-base font-semibold">Gerar as duas quinzenas do mês</h2>
-        <p className="mb-4 text-sm text-zinc-500">
-          Cria automaticamente do dia 01 ao 15, e do dia 16 até o último dia útil do mês (pula fins de
-          semana e feriados nacionais).
-        </p>
-        <form action={generateMonthPeriods} className="flex items-end gap-3">
-          <label className="flex flex-1 flex-col gap-1 text-sm">
-            Mês
-            <input name="month" type="month" required className="rounded-md border px-3 py-2" />
-          </label>
-          <button
-            type="submit"
-            className="rounded-md bg-brand-navy px-4 py-2 text-sm font-medium text-white hover:bg-brand-navy-light"
-          >
-            Gerar quinzenas
           </button>
         </form>
       </div>

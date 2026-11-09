@@ -21,15 +21,6 @@ export function isBusinessDay(date: Date): boolean {
   return !isNationalHoliday(date);
 }
 
-/** Último dia útil (não fim de semana, não feriado nacional) de um mês (1-12). */
-export function lastBusinessDayOfMonth(year: number, month1to12: number): Date {
-  let d = new Date(Date.UTC(year, month1to12, 0, 12, 0, 0)); // dia 0 do próximo mês = último dia deste mês
-  while (!isBusinessDay(d)) {
-    d = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - 1, 12, 0, 0));
-  }
-  return d;
-}
-
 /** O próprio dia, se for útil; senão o próximo dia útil (pula fim de semana e feriado nacional). */
 export function nextBusinessDayOnOrAfter(date: Date): Date {
   let d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 12, 0, 0));

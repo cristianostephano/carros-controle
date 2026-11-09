@@ -2,8 +2,8 @@
 
 import { prisma } from "@/lib/prisma";
 import { redirect } from "next/navigation";
-import { generateFortnightPeriods, generateMonthlyCyclePeriod } from "@/lib/periods";
-import { ensureNationalHolidaysSeeded, ensureNationalHolidaysSeededForRange } from "@/lib/holidaySeed";
+import { generateMonthlyCyclePeriod } from "@/lib/periods";
+import { ensureNationalHolidaysSeededForRange } from "@/lib/holidaySeed";
 
 function parseDateInput(value: string): Date {
   // input type="date" já entrega yyyy-mm-dd; guardamos meio-dia UTC pra evitar
@@ -36,37 +36,6 @@ export async function createPeriod(formData: FormData) {
   });
 
   redirect(`/periodos/${period.id}`);
-}
-
-export async function generateMonthPeriods(formData: FormData) {
-  const monthValue = String(formData.get("month") ?? ""); // "yyyy-mm"
-  const [yearStr, monthStr] = monthValue.split("-");
-  const year = Number(yearStr);
-  const month = Number(monthStr);
-  if (!year || !month) {
-    throw new Error("Escolha um mês válido.");
-  }
-
-  const fortnights = generateFortnightPeriods(year, month);
-  await ensureNationalHolidaysSeeded(year);
-
-  for (const fortnight of fortnights) {
-    const existing = await prisma.period.findFirst({
-      where: { startDate: fortnight.startDate, endDate: fortnight.endDate },
-    });
-    if (!existing) {
-      await prisma.period.create({
-        data: {
-          label: fortnight.label,
-          startDate: fortnight.startDate,
-          endDate: fortnight.endDate,
-          status: "OPEN",
-        },
-      });
-    }
-  }
-
-  redirect("/periodos");
 }
 
 export async function generateMonthlyPeriod(formData: FormData) {
