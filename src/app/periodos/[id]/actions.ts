@@ -88,7 +88,7 @@ export async function bulkSetDecision(periodId: string, tripIds: string[], decis
  * (útil depois de cadastrar um feriado/exceção novo, ou depois da Fase 1 onde
  * tudo ficou "Não classificado").
  */
-export async function reclassifyPeriod(periodId: string) {
+export async function reclassifyPeriod(periodId: string): Promise<{ checked: number; updated: number }> {
   const period = await prisma.period.findUniqueOrThrow({ where: { id: periodId } });
   const { start, end } = periodDayBounds(period);
   await ensureNationalHolidaysSeededForRange(start, end);
@@ -193,6 +193,9 @@ export async function reclassifyPeriod(periodId: string) {
   }
 
   revalidatePath(`/periodos/${periodId}`);
+  let updated = 0;
+  for (const g of groups.values()) updated += g.ids.length;
+  return { checked: trips.length, updated };
 }
 
 /**

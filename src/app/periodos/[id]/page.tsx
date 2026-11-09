@@ -2,7 +2,7 @@ import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { formatDateBR } from "@/lib/dates";
-import { reclassifyPeriod } from "./actions";
+import { ReclassifyButton } from "@/components/reclassify-button";
 import { KmPorDiaChart, KmPorVendedorChart } from "@/components/period-charts";
 import { Badge, DashboardCard, StatTile } from "@/components/dashboard-ui";
 import { formatCentavosAsReais } from "@/lib/money";
@@ -206,11 +206,6 @@ export default async function PeriodoPage({
 
   const pendingImports = period.imports.filter((i) => i.status === "PENDING_PREVIEW");
 
-  async function reclassifyAction() {
-    "use server";
-    await reclassifyPeriod(id);
-  }
-
   return (
     <div className="mx-auto max-w-6xl px-6 py-8">
       <div className="mb-6 flex items-start justify-between">
@@ -227,14 +222,7 @@ export default async function PeriodoPage({
           )}
         </div>
         <div className="flex gap-3">
-          <form action={reclassifyAction}>
-            <button
-              type="submit"
-              className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
-            >
-              Reclassificar viagens
-            </button>
-          </form>
+          <ReclassifyButton periodId={id} />
           <Link
             href={`/periodos/${id}/vendedores`}
             className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
