@@ -72,8 +72,8 @@ export default async function VendorTokenPage({ params }: { params: Promise<{ to
       </div>
       <div className="mx-auto max-w-lg px-4 pt-4">
         <p className="mb-2 text-sm text-zinc-600">
-          Para cada trajeto abaixo, marque se o uso foi <strong>pessoal</strong> ou <strong>profissional</strong>.
-          Mesmo os trajetos já revisados podem ser trocados, se necessário.
+          Confira os trajetos abaixo. Eles já vêm marcados como <strong>pessoal</strong> ou <strong>profissional</strong>;
+          troque só o que estiver errado e depois toque em <strong>Enviar respostas</strong>. Comece pela aba <strong>Pessoais</strong>.
         </p>
       </div>
       <VendorResponseForm token={token} rows={rows} />
