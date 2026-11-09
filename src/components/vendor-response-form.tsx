@@ -19,7 +19,8 @@ export type ResponseTripRow = {
 };
 
 type Answer = "PESSOAL" | "PROFISSIONAL" | null;
-type Tab = "PESSOAL" | "PROFISSIONAL" | "TODAS";
+type Tab = "PESSOAL" | "MARGEM" | "PROFISSIONAL" | "TODAS";
+type Group = "PESSOAL" | "MARGEM" | "PROFISSIONAL";
 
 const CLASSIFICATION_LABEL: Record<string, string> = {
   PROFISSIONAL: "Profissional",
@@ -29,6 +30,26 @@ const CLASSIFICATION_LABEL: Record<string, string> = {
 };
 
 const WEEKDAYS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+
+// Expediente normal (08h às 18h). O horário de trabalho vai de 06h a 20h: as 2h antes e depois do
+// expediente são a "margem de segurança", onde é comum o trajeto já ser fora do trabalho.
+const EXPEDIENTE_START = 8 * 60;
+const EXPEDIENTE_END = 18 * 60;
+
+function minutesOfDay(date: Date): number {
+  return date.getUTCHours() * 60 + date.getUTCMinutes();
+}
+
+// Só trajetos que o sistema marcou como profissionais e que tocam a margem (antes das 08h ou depois das 18h).
+function marginLabel(r: ResponseTripRow): string | null {
+  if (r.autoClassification !== "PROFISSIONAL") return null;
+  const before = minutesOfDay(r.startDateTime) < EXPEDIENTE_START;
+  const after = minutesOfDay(r.endDateTime) > EXPEDIENTE_END;
+  if (before && after) return "Antes das 08h e depois das 18h";
+  if (before) return "Antes do expediente (06h–08h)";
+  if (after) return "Depois do expediente (18h–20h)";
+  return null;
+}
 
 // Endereço curto (rua e número) para caber numa linha; o completo fica no "title".
 function shortAddress(address: string | null): string {
@@ -60,8 +81,10 @@ export function VendorResponseForm({ token, rows }: { token: string; rows: Respo
   );
   // Em qual aba cada viagem fica é decidido uma vez só, na abertura da página, para a linha não
   // "sumir" da aba quando o vendedor troca a resposta dela.
-  const [initialGroup] = useState<Record<string, "PESSOAL" | "PROFISSIONAL">>(() =>
-    Object.fromEntries(rows.map((r) => [r.id, answers[r.id] === "PESSOAL" ? "PESSOAL" : "PROFISSIONAL"]))
+  const [initialGroup] = useState<Record<string, Group>>(() =>
+    Object.fromEntries(
+      rows.map((r) => [r.id, answers[r.id] === "PESSOAL" ? "PESSOAL" : marginLabel(r) ? "MARGEM" : "PROFISSIONAL"])
+    )
   );
   const [tab, setTab] = useState<Tab>(rows.some((r) => initialGroup[r.id] === "PESSOAL") ? "PESSOAL" : "TODAS");
   const [submitted, setSubmitted] = useState(false);
@@ -73,7 +96,8 @@ export function VendorResponseForm({ token, rows }: { token: string; rows: Respo
   const missing = editableRows.filter((r) => !answers[r.id]);
 
   const personalCount = rows.filter((r) => initialGroup[r.id] === "PESSOAL").length;
-  const professionalCount = rows.length - personalCount;
+  const marginCount = rows.filter((r) => initialGroup[r.id] === "MARGEM").length;
+  const professionalCount = rows.length - personalCount - marginCount;
   const kmPessoal = rows.reduce((acc, r) => acc + (answers[r.id] === "PESSOAL" ? (r.km ?? 0) : 0), 0);
   const kmProfissional = rows.reduce((acc, r) => acc + (answers[r.id] === "PROFISSIONAL" ? (r.km ?? 0) : 0), 0);
 
@@ -154,6 +178,7 @@ export function VendorResponseForm({ token, rows }: { token: string; rows: Respo
 
   const tabs: { id: Tab; label: string }[] = [
     { id: "PESSOAL", label: `Pessoais (${personalCount})` },
+    { id: "MARGEM", label: `Revisar horário (${marginCount})` },
     { id: "PROFISSIONAL", label: `Profissionais (${professionalCount})` },
     { id: "TODAS", label: `Todas (${rows.length})` },
   ];
@@ -171,7 +196,7 @@ export function VendorResponseForm({ token, rows }: { token: string; rows: Respo
         </div>
       </div>
 
-      <div className="mb-3 grid grid-cols-3 gap-1 rounded-lg bg-zinc-100 p-1 text-xs font-medium">
+      <div className="mb-3 grid grid-cols-2 gap-1 rounded-lg bg-zinc-100 p-1 text-xs font-medium sm:grid-cols-4">
         {tabs.map((t) => (
           <button
             key={t.id}
@@ -185,6 +210,13 @@ export function VendorResponseForm({ token, rows }: { token: string; rows: Respo
           </button>
         ))}
       </div>
+
+      {tab === "MARGEM" && (
+        <p className="mb-3 text-xs text-zinc-500">
+          Trajetos feitos entre 06h e 08h ou entre 18h e 20h. O sistema os marcou como profissionais por estarem
+          na margem de segurança, mas confira: se algum não foi trabalho, troque para Pessoal.
+        </p>
+      )}
 
       {tab === "PROFISSIONAL" && (
         <p className="mb-3 text-xs text-zinc-500">
@@ -254,9 +286,15 @@ export function VendorResponseForm({ token, rows }: { token: string; rows: Respo
                         <div className="truncate text-sm text-zinc-500" title={r.destAddress ?? "-"}>
                           → {shortAddress(r.destAddress)}
                         </div>
-                        <div className="truncate text-[11px] text-zinc-400" title={r.autoClassificationReason}>
-                          {r.autoClassificationReason}
-                        </div>
+                        {initialGroup[r.id] === "MARGEM" ? (
+                          <div className="truncate text-[11px] font-medium text-amber-700" title={marginLabel(r) ?? ""}>
+                            {marginLabel(r)}
+                          </div>
+                        ) : (
+                          <div className="truncate text-[11px] text-zinc-400" title={r.autoClassificationReason}>
+                            {r.autoClassificationReason}
+                          </div>
+                        )}
                       </div>
 
                       {r.locked ? (
