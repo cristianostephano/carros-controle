@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AdminNamePicker } from "@/components/admin-name-picker";
 import { AppShell } from "@/components/app-shell";
-import { LogoutButton } from "@/components/logout-button";
+import { getAdminName } from "@/lib/adminName";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -20,25 +20,20 @@ export const metadata: Metadata = {
   description: "Dashboard de gestão de frota e uso pessoal",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const adminName = await getAdminName();
+
   return (
     <html
       lang="pt-BR"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full bg-zinc-50 text-zinc-900">
-        <AppShell
-          adminNamePicker={
-            <>
-              <AdminNamePicker />
-              <LogoutButton />
-            </>
-          }
-        >
+        <AppShell adminName={adminName} adminNamePicker={<AdminNamePicker />}>
           {children}
         </AppShell>
       </body>
