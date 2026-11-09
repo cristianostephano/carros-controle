@@ -4,12 +4,9 @@ import Link from "next/link";
 import { formatDateBR } from "@/lib/dates";
 import { ReclassifyButton } from "@/components/reclassify-button";
 import { KmPorDiaChart, KmPorVendedorChart } from "@/components/period-charts";
-import { Badge, DashboardCard, StatTile } from "@/components/dashboard-ui";
+import { DashboardCard, StatTile } from "@/components/dashboard-ui";
 import { formatCentavosAsReais } from "@/lib/money";
-import { periodDayBounds } from "@/lib/dates";
-import { buildHolidayMap } from "@/lib/classification/buildHolidayMap";
 import { rhDeliveryDate } from "@/lib/periods";
-import { classifyOffHoursBucket } from "@/lib/classification/offHoursBreakdown";
 
 const STATUS_OPTIONS = [
   { value: "AGUARDANDO_DEVOLUTIVA", label: "Aguardando devolutiva" },
@@ -76,133 +73,60 @@ export default async function PeriodoPage({
   let kmPessoalConfirmado = 0;
   let kmEmAnaliseOuPendente = 0;
   let valorTotalReembolsarCentavos = 0;
-  let trajetosForaDoExpediente = 0;
+  let kmAReembolsar = 0;
 
-  const kmPorVendedorMap = new Map<string, number>();
-  const kmPessoalPorVendedorMap = new Map<string, number>();
-  const kmPorVeiculoMap = new Map<string, number>();
+  type ResumoVendedor = { viagens: number; kmTotal: number; kmProfissional: number; kmPessoal: number };
+  const resumoPorVendedor = new Map<string, ResumoVendedor>();
   const kmPorDiaMap = new Map<string, number>();
-  const pendentesPorVendedor = new Map<string, number>();
-
-  const { start: periodStart, end: periodEnd } = periodDayBounds(period);
-  const holidayMap = await buildHolidayMap(periodStart, periodEnd);
-  const kmFimDeSemanaPorVendedor = new Map<string, number>();
-  const kmAposExpedientePorVendedor = new Map<string, number>();
-  const kmFimDeSemanaTotalPorVendedor = new Map<string, number>();
-  const kmAposExpedienteTotalPorVendedor = new Map<string, number>();
-  let excedenteAguardandoVendedor = 0;
-  let excedenteAguardandoGestao = 0;
 
   for (const t of trips) {
     const km = t.km ?? 0;
     kmTotal += km;
-    if (t.autoClassification !== "PROFISSIONAL") trajetosForaDoExpediente += 1;
+
+    const resumo = resumoPorVendedor.get(t.salesperson.nickname) ?? {
+      viagens: 0,
+      kmTotal: 0,
+      kmProfissional: 0,
+      kmPessoal: 0,
+    };
+    resumo.viagens += 1;
+    resumo.kmTotal += km;
 
     if (t.adminDecision === "PESSOAL") {
       kmPessoalConfirmado += km;
+      kmAReembolsar += t.reimbursableKm ?? km;
+      resumo.kmPessoal += km;
       const rate = t.vehicle.modelId ? rateByModelId.get(t.vehicle.modelId) : null;
       if (rate) valorTotalReembolsarCentavos += Math.round((t.reimbursableKm ?? km) * rate);
-      kmPessoalPorVendedorMap.set(
-        t.salesperson.nickname,
-        (kmPessoalPorVendedorMap.get(t.salesperson.nickname) ?? 0) + km
-      );
-    } else if (t.adminDecision === "PROFISSIONAL") {
+    } else if (t.adminDecision === "PROFISSIONAL" || (!t.adminDecision && t.autoClassification === "PROFISSIONAL")) {
       kmProfissional += km;
-    } else if (t.autoClassification === "PROFISSIONAL") {
-      kmProfissional += km;
+      resumo.kmProfissional += km;
     } else {
       kmEmAnaliseOuPendente += km;
       if (t.autoClassification === "PESSOAL" || t.autoClassification === "NAO_CLASSIFICADO") {
-        kmPessoalPorVendedorMap.set(
-          t.salesperson.nickname,
-          (kmPessoalPorVendedorMap.get(t.salesperson.nickname) ?? 0) + km
-        );
+        resumo.kmPessoal += km;
       }
     }
+    resumoPorVendedor.set(t.salesperson.nickname, resumo);
 
-    if (!t.adminDecision) {
-      pendentesPorVendedor.set(t.salesperson.nickname, (pendentesPorVendedor.get(t.salesperson.nickname) ?? 0) + 1);
-    }
-
-    kmPorVendedorMap.set(t.salesperson.nickname, (kmPorVendedorMap.get(t.salesperson.nickname) ?? 0) + km);
-    kmPorVeiculoMap.set(t.vehicle.plate, (kmPorVeiculoMap.get(t.vehicle.plate) ?? 0) + km);
     const day = formatDateBR(t.startDateTime);
     kmPorDiaMap.set(day, (kmPorDiaMap.get(day) ?? 0) + km);
-
-    // Km excedente: acompanhamos o total geral (histórico, pra referência) e, separado,
-    // só o que ainda não tem decisão final da gestão (o que realmente precisa de atenção
-    // — depois de confirmado, o km já conta nos totais acima e sai da lista de pendentes).
-    const offHoursBucket = classifyOffHoursBucket(t.startDateTime, holidayMap);
-    if (offHoursBucket === "FIM_DE_SEMANA_FERIADO" || offHoursBucket === "APOS_EXPEDIENTE") {
-      const totalMap = offHoursBucket === "FIM_DE_SEMANA_FERIADO"
-        ? kmFimDeSemanaTotalPorVendedor
-        : kmAposExpedienteTotalPorVendedor;
-      totalMap.set(t.salesperson.nickname, (totalMap.get(t.salesperson.nickname) ?? 0) + km);
-
-      if (!t.adminDecision) {
-        const pendingMap = offHoursBucket === "FIM_DE_SEMANA_FERIADO"
-          ? kmFimDeSemanaPorVendedor
-          : kmAposExpedientePorVendedor;
-        pendingMap.set(t.salesperson.nickname, (pendingMap.get(t.salesperson.nickname) ?? 0) + km);
-
-        if (!t.salespersonDeclaration) {
-          excedenteAguardandoVendedor += 1;
-        } else {
-          excedenteAguardandoGestao += 1;
-        }
-      }
-    }
   }
 
-  const kmPorVendedor = [...kmPorVendedorMap.entries()]
-    .map(([name, km]) => ({ name, km }))
-    .sort((a, b) => b.km - a.km);
-  const topVendedoresPessoal = [...kmPessoalPorVendedorMap.entries()]
-    .map(([name, km]) => ({ name, km }))
-    .sort((a, b) => b.km - a.km);
-  const topVeiculos = [...kmPorVeiculoMap.entries()]
-    .map(([plate, km]) => ({ plate, km }))
-    .sort((a, b) => b.km - a.km);
-  const kmPorDia = [...kmPorDiaMap.entries()].map(([day, km]) => ({ day, km }));
-  const vendedoresPendentes = [...pendentesPorVendedor.entries()].sort((a, b) => b[1] - a[1]);
-
-  const kmExcedentePorVendedor = salespeople
-    .map((s) => {
-      const kmFimDeSemana = kmFimDeSemanaPorVendedor.get(s.nickname) ?? 0;
-      const kmAposExpediente = kmAposExpedientePorVendedor.get(s.nickname) ?? 0;
-      const kmFimDeSemanaTotal = kmFimDeSemanaTotalPorVendedor.get(s.nickname) ?? 0;
-      const kmAposExpedienteTotal = kmAposExpedienteTotalPorVendedor.get(s.nickname) ?? 0;
-      return {
-        nickname: s.nickname,
-        kmFimDeSemana,
-        kmAposExpediente,
-        kmFimDeSemanaTotal,
-        kmAposExpedienteTotal,
-        kmTotalPendente: kmFimDeSemana + kmAposExpediente,
-        kmTotalGeral: kmFimDeSemanaTotal + kmAposExpedienteTotal,
-      };
-    })
-    .filter((v) => v.kmTotalGeral > 0)
-    .sort((a, b) => b.kmTotalGeral - a.kmTotalGeral);
-
-  const kmExcedenteSomatoria = kmExcedentePorVendedor.reduce(
+  const resumoVendedores = [...resumoPorVendedor.entries()]
+    .map(([nickname, r]) => ({ nickname, ...r }))
+    .sort((x, y) => y.kmTotal - x.kmTotal);
+  const resumoSomatoria = resumoVendedores.reduce(
     (acc, v) => ({
-      kmFimDeSemanaTotal: acc.kmFimDeSemanaTotal + v.kmFimDeSemanaTotal,
-      kmAposExpedienteTotal: acc.kmAposExpedienteTotal + v.kmAposExpedienteTotal,
-      kmTotalGeral: acc.kmTotalGeral + v.kmTotalGeral,
-      kmFimDeSemana: acc.kmFimDeSemana + v.kmFimDeSemana,
-      kmAposExpediente: acc.kmAposExpediente + v.kmAposExpediente,
-      kmTotalPendente: acc.kmTotalPendente + v.kmTotalPendente,
+      viagens: acc.viagens + v.viagens,
+      kmTotal: acc.kmTotal + v.kmTotal,
+      kmProfissional: acc.kmProfissional + v.kmProfissional,
+      kmPessoal: acc.kmPessoal + v.kmPessoal,
     }),
-    {
-      kmFimDeSemanaTotal: 0,
-      kmAposExpedienteTotal: 0,
-      kmTotalGeral: 0,
-      kmFimDeSemana: 0,
-      kmAposExpediente: 0,
-      kmTotalPendente: 0,
-    }
+    { viagens: 0, kmTotal: 0, kmProfissional: 0, kmPessoal: 0 }
   );
+  const kmPorVendedor = resumoVendedores.map((v) => ({ name: v.nickname, km: v.kmTotal }));
+  const kmPorDia = [...kmPorDiaMap.entries()].map(([day, km]) => ({ day, km }));
 
   const pendingImports = period.imports.filter((i) => i.status === "PENDING_PREVIEW");
 
@@ -323,7 +247,7 @@ export default async function PeriodoPage({
         <DashboardCard title="Reembolso e filtro atual" icon={<CashIcon />}>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <StatTile value={`R$ ${formatCentavosAsReais(valorTotalReembolsarCentavos)}`} label="Valor a reembolsar" />
-            <StatTile value={String(trajetosForaDoExpediente)} label="Fim de semana/feriado" />
+            <StatTile value={`${kmAReembolsar.toFixed(0)}`} label="Km a reembolsar" />
             <StatTile value={String(trips.length)} label="Viagens no filtro" />
             <StatTile value={String(salespeople.length)} label="Vendedores" />
           </div>
@@ -340,124 +264,43 @@ export default async function PeriodoPage({
         </DashboardCard>
       </div>
 
-      {/* Top listas */}
-      <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-3">
-        <DashboardCard title="Km pessoal por vendedor" icon={<UsersIcon />} href={`/periodos/${id}/pessoal`}>
-          <ul className="max-h-64 space-y-1 overflow-y-auto text-sm">
-            {topVendedoresPessoal.map((v) => (
-              <li key={v.name} className="flex justify-between">
-                <span>{v.name}</span>
-                <span className="font-medium">{v.km.toFixed(1)} km</span>
-              </li>
-            ))}
-            {topVendedoresPessoal.length === 0 && <li className="text-zinc-400">Nenhum</li>}
-          </ul>
-        </DashboardCard>
-        <DashboardCard title="Km por veículo" icon={<CarSmallIcon />}>
-          <ul className="max-h-64 space-y-1 overflow-y-auto text-sm">
-            {topVeiculos.map((v) => (
-              <li key={v.plate} className="flex justify-between">
-                <span>{v.plate}</span>
-                <span className="font-medium">{v.km.toFixed(1)} km</span>
-              </li>
-            ))}
-          </ul>
-        </DashboardCard>
-        <DashboardCard
-          title="Vendedores com viagens pendentes"
-          icon={<AlertIcon />}
-          badge={vendedoresPendentes.length > 0 ? <Badge tone="amber">{vendedoresPendentes.length}</Badge> : undefined}
-          href={`/periodos/${id}/vendedores`}
-        >
-          <ul className="max-h-64 space-y-1 overflow-y-auto text-sm">
-            {vendedoresPendentes.map(([name, count]) => (
-              <li key={name} className="flex justify-between">
-                <span>{name}</span>
-                <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
-                  {count}
-                </span>
-              </li>
-            ))}
-            {vendedoresPendentes.length === 0 && <li className="text-zinc-400">Nenhum</li>}
-          </ul>
-        </DashboardCard>
-      </div>
-
-      {/* Km excedente por vendedor */}
-      <DashboardCard
-        title="Km excedente por vendedor"
-        icon={<AlertIcon />}
-        badge={
-          excedenteAguardandoVendedor + excedenteAguardandoGestao > 0 ? (
-            <Badge tone="amber">{excedenteAguardandoVendedor + excedenteAguardandoGestao}</Badge>
-          ) : (
-            <Badge tone="emerald">OK</Badge>
-          )
-        }
-      >
-        <p className="mb-3 text-xs text-zinc-400">
-          Km rodado fora do expediente (fim de semana/feriado, ou depois do fim do expediente do dia). As
-          colunas &ldquo;total&rdquo; somam pendente + já decidido pela gestão (fim de semana + após
-          expediente = total geral). As colunas &ldquo;pendente&rdquo; são o subconjunto que{" "}
-          <strong>ainda não tem decisão final da gestão</strong> — assim que confirmada (pessoal ou
-          profissional), a viagem sai do pendente e passa a contar nos totais do painel.
-        </p>
-        {(excedenteAguardandoVendedor > 0 || excedenteAguardandoGestao > 0) && (
-          <div className="mb-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-            Ainda há {excedenteAguardandoVendedor} viagem(ns) excedente(s) aguardando resposta do vendedor e{" "}
-            {excedenteAguardandoGestao} aguardando revisão da gestão.
-          </div>
-        )}
-        {kmExcedentePorVendedor.length === 0 ? (
-          <p className="text-sm text-zinc-400">Nenhum km excedente no filtro atual.</p>
+      {/* Resumo detalhado por vendedor */}
+      <DashboardCard title="Resumo por vendedor" icon={<UsersIcon />} href={`/periodos/${id}/pessoal`} hrefLabel="Ver uso pessoal">
+        {resumoVendedores.length === 0 ? (
+          <p className="text-sm text-zinc-400">Nenhuma viagem no filtro atual.</p>
         ) : (
           <div className="overflow-x-auto">
-          <table className="w-full min-w-[820px] text-left text-sm">
-            <thead className="border-b">
-              <tr className="text-zinc-400">
-                <th className="py-1"></th>
-                <th className="py-1 text-center font-medium" colSpan={3}>
-                  Total (pendente + decidido)
-                </th>
-                <th className="py-1 text-center font-medium" colSpan={3}>
-                  Só pendente
-                </th>
-              </tr>
-              <tr className="border-b text-zinc-500">
-                <th className="py-2 font-medium">Vendedor</th>
-                <th className="py-2 font-medium">Fim de semana/feriado</th>
-                <th className="py-2 font-medium">Após expediente</th>
-                <th className="py-2 font-medium">Total geral</th>
-                <th className="py-2 font-medium">Fim de semana/feriado</th>
-                <th className="py-2 font-medium">Após expediente</th>
-                <th className="py-2 font-medium">Total pendente</th>
-              </tr>
-            </thead>
-            <tbody>
-              {kmExcedentePorVendedor.map((v) => (
-                <tr key={v.nickname} className="border-b last:border-0">
-                  <td className="py-2">{v.nickname}</td>
-                  <td className="py-2">{v.kmFimDeSemanaTotal.toFixed(1)} km</td>
-                  <td className="py-2">{v.kmAposExpedienteTotal.toFixed(1)} km</td>
-                  <td className="py-2 font-medium">{v.kmTotalGeral.toFixed(1)} km</td>
-                  <td className="py-2 text-amber-700">{v.kmFimDeSemana.toFixed(1)} km</td>
-                  <td className="py-2 text-amber-700">{v.kmAposExpediente.toFixed(1)} km</td>
-                  <td className="py-2 font-medium text-amber-700">{v.kmTotalPendente.toFixed(1)} km</td>
+            <table className="w-full min-w-[560px] text-left text-sm">
+              <thead>
+                <tr className="border-b text-zinc-500">
+                  <th className="py-2 font-medium">Vendedor</th>
+                  <th className="py-2 text-right font-medium">Viagens</th>
+                  <th className="py-2 text-right font-medium">Km total</th>
+                  <th className="py-2 text-right font-medium">Km profissional</th>
+                  <th className="py-2 text-right font-medium">Km pessoal</th>
                 </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr className="border-t font-medium">
-                <td className="py-2">Total</td>
-                <td className="py-2">{kmExcedenteSomatoria.kmFimDeSemanaTotal.toFixed(1)} km</td>
-                <td className="py-2">{kmExcedenteSomatoria.kmAposExpedienteTotal.toFixed(1)} km</td>
-                <td className="py-2">{kmExcedenteSomatoria.kmTotalGeral.toFixed(1)} km</td>
-                <td className="py-2 text-amber-700">{kmExcedenteSomatoria.kmFimDeSemana.toFixed(1)} km</td>
-                <td className="py-2 text-amber-700">{kmExcedenteSomatoria.kmAposExpediente.toFixed(1)} km</td>
-                <td className="py-2 text-amber-700">{kmExcedenteSomatoria.kmTotalPendente.toFixed(1)} km</td>
-              </tr>
-            </tfoot>
-          </table>
+              </thead>
+              <tbody>
+                {resumoVendedores.map((v) => (
+                  <tr key={v.nickname} className="border-b last:border-0">
+                    <td className="py-2">{v.nickname}</td>
+                    <td className="py-2 text-right">{v.viagens}</td>
+                    <td className="py-2 text-right font-medium">{v.kmTotal.toFixed(1)} km</td>
+                    <td className="py-2 text-right">{v.kmProfissional.toFixed(1)} km</td>
+                    <td className="py-2 text-right">{v.kmPessoal.toFixed(1)} km</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="border-t font-semibold">
+                  <td className="py-2">Total</td>
+                  <td className="py-2 text-right">{resumoSomatoria.viagens}</td>
+                  <td className="py-2 text-right">{resumoSomatoria.kmTotal.toFixed(1)} km</td>
+                  <td className="py-2 text-right">{resumoSomatoria.kmProfissional.toFixed(1)} km</td>
+                  <td className="py-2 text-right">{resumoSomatoria.kmPessoal.toFixed(1)} km</td>
+                </tr>
+              </tfoot>
+            </table>
           </div>
         )}
       </DashboardCard>
@@ -515,21 +358,6 @@ function UsersIcon() {
     <svg {...iconProps()}>
       <circle cx="9" cy="8" r="3" />
       <path d="M3 20a6 6 0 0 1 12 0M17 8a3 3 0 1 1-3-3M15 20a6 6 0 0 0-1.5-8" />
-    </svg>
-  );
-}
-function CarSmallIcon() {
-  return (
-    <svg {...iconProps()}>
-      <path d="M5 17h14M5 17a2 2 0 1 0 4 0m6 0a2 2 0 1 0 4 0M5 17V9l2-4h10l2 4v8" />
-    </svg>
-  );
-}
-function AlertIcon() {
-  return (
-    <svg {...iconProps()}>
-      <path d="M12 3 2 20h20L12 3z" />
-      <path d="M12 10v4M12 17h.01" />
     </svg>
   );
 }
